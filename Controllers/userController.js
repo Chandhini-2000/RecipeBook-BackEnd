@@ -1,4 +1,5 @@
-const bcrypt = require('bcrypt'); // Import bcrypt
+const bcrypt = require('bcryptjs');
+ // Import bcrypt
 const users = require('../Models/userSchema'); // Import user schema
 const jwt = require('jsonwebtoken'); // Ensure jwt is imported
 
