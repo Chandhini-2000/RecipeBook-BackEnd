@@ -1,11 +1,17 @@
 const axios = require('axios');
-//const Recipe = require('../Models/recipeSchema');
-const recipes = require('../Models/recipeSchema'); // Adjust the path as necessary
+const recipes = require('../Models/recipeSchema');
 const users = require('../Models/userSchema');
 const jwt = require('jsonwebtoken'); 
-const apiKey = 'ce1c20aa64ae41d5bbdfcfed99959c98';
 const Collection = require('../Models/collectionSchema');
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
 
+const apiKey = 'ce1c20aa64ae41d5bbdfcfed99959c98';
+
+// ===============================
+// Spoonacular API Fetch
+// ===============================
 const fetchRecipeDetails = async (query) => {
   try {
     const response = await axios.get(
@@ -27,14 +33,13 @@ const fetchRecipeDetails = async (query) => {
   }
 };
 
-
-
+// ===============================
+// Add Recipe
+// ===============================
 exports.addRecipe = async (req, res) => {
   const { name, ingredients, instructions } = req.body;
-  console.log(req.body);
-  
-  const recipeImg = req.file ? req.file.filename : null; // Extract filename
-  const userID = req.payload; // Get user ID from JWT
+  const recipeImg = req.file?.filename || null; // Safe optional chaining
+  const userID = req.payload; // from JWT
 
   if (!recipeImg) {
     return res.status(400).json({ message: 'Image is required' });
@@ -55,7 +60,6 @@ exports.addRecipe = async (req, res) => {
     });
 
     await newRecipe.save();
-
     res.status(201).json({ message: 'Recipe added successfully', recipes: newRecipe });
   } catch (err) {
     console.error(err);
@@ -63,221 +67,37 @@ exports.addRecipe = async (req, res) => {
   }
 };
 
-
-
-
-
+// ===============================
+// Get All Recipes
+// ===============================
 exports.getAllRecipes = async (req, res) => {
   try {
-    const recipesList = await recipes.find();  // Fetch all recipes from the database
-  console.log(recipesList);
-  
-    // Add full image URL to each recipe
-    const recipesWithImageURL = recipesList.map(recipe => {
-      console.log('Recipe Image Field:', recipe.recipeImg);  // Log the actual value of recipeImg
-      return {
-        ...recipe.toObject(),
-        recipeImg: recipe.recipeImg ? `http://localhost:4001/uploads/${recipe.recipeImg}` : null,  // Use lowercase 'uploads'
-      };
-    });
-    console.log(recipesWithImageURL);
-    
+    const recipesList = await recipes.find();
 
-    res.status(200).json(recipesWithImageURL);  // Return the updated recipes list with full image URL
+    const recipesWithImageURL = recipesList.map(recipe => ({
+      ...recipe.toObject(),
+      recipeImg: recipe.recipeImg ? `http://localhost:4001/uploads/${recipe.recipeImg}` : null,
+    }));
+
+    res.status(200).json(recipesWithImageURL);
   } catch (error) {
     console.error('Error fetching recipes:', error);
     res.status(500).json({ message: 'Error fetching recipes', error });
   }
 };
 
-
-//pdf download
-const PDFDocument = require('pdfkit');
-const fs = require('fs');
-const path = require('path');
-
-exports.generatePDF = (req, res) => {
-  const { name, ingredients, instructions } = req.body;
-
-  if (!name || !ingredients || !instructions) {
-    return res.status(400).json({ message: 'Incomplete recipe data' });
-  }
-
-  const doc = new PDFDocument();
-  const pdfPath = path.join(__dirname, `${name.replace(/\s+/g, '_')}.pdf`);
-
-  const writeStream = fs.createWriteStream(pdfPath);
-  doc.pipe(writeStream);
-
-  doc.fontSize(18).text(`Recipe: ${name}`, { underline: true });
-  doc.moveDown();
-  doc.fontSize(14).text('Ingredients:', { underline: true });
-  doc.fontSize(12).text(ingredients);
-  doc.moveDown();
-  doc.fontSize(14).text('Instructions:', { underline: true });
-  doc.fontSize(12).text(instructions);
-  doc.end();
-
-  writeStream.on('finish', () => {
-    res.download(pdfPath, `${name.replace(/\s+/g, '_')}.pdf`, (err) => {
-      if (err) {
-        console.error('Error during PDF download:', err);
-      }
-      fs.unlinkSync(pdfPath);
-    });
-  });
-};
-
-//sharable link
-// Function to generate shareable link for a recipe
-exports.generateShareableLink = async (req, res) => {
-  const { recipeId } = req.body;  // Expect recipeId from frontend
-  console.log(req.body);
-
-  try {
-    // Find the recipe by ID
-    const Recipe = await recipes.findById(recipeId);
-
-    if (!Recipe) {
-      return res.status(404).json({ message: 'Recipe not found' });
-    }
-
-    // Generate a unique shareable URL (this is an example, can be customized)
-    const shareableLink = `${req.protocol}://${req.get('host')}/recipes/${Recipe._id}`;  // Using Recipe._id to generate the link
-
-    // Send the shareable link as a response
-    return res.status(200).json({ link: shareableLink });
-  } catch (error) {
-    console.error('Error generating shareable link:', error);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
-//delete 
-exports.deleteRecipe=async(req,res)=>{
-  console.log("Inside delete");
-  
-  const {recipeId}= req.params
-  console.log(recipeId);
-  
-  try{
-    const response = await recipes.findByIdAndDelete(recipeId);
-
-      res.status(200).json("Successfully Deleted")
-  }
-  catch(err){
-      res.status(402).json("Error" +err)
-  }
-}
-
-// Update a recipe
-exports.editRecipe = async (req, res) => {
-  try {
-    const { name, ingredients, instructions } = req.body;
-    const updatedData = {
-       name,
-      ingredients,
-      instructions,
-    };
-
-    // If a new image is uploaded
-    if (req.file) {
-      updatedData.recipeImg = req.file.filename;
-    }
-
-    const recipe = await recipes.findByIdAndUpdate(req.params.id, updatedData, {
-      new: true,
-    });
-
-    if (!recipe) {
-      return res.status(404).json({ message: 'Recipe not found' });
-    }
-
-    res.status(200).json({ message: 'Recipe updated successfully', recipe });
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating recipe', error });
-  }
-};
-
-
-// Create a new collection
-exports.createCollection = async (req, res) => {
-  const { name, recipes } = req.body;
-  console.log("data",req.body);
-  const userID=req.payload;
-  console.log("User found in",userID);
-  
-
-
-  try {
-    // Validate input
-    if (!name || !userID || !recipes || recipes.length === 0) {
-      return res.status(400).json({ message: 'Invalid input data' });
-    }
-
-    // Check if user exists
-    const userExists = await users.findById(userID);
-    if (!userExists) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Create a new collection
-    const newCollection = new Collection({
-      name,
-      userID,
-      recipes,
-    });
-
-    await newCollection.save();
-
-    res.status(201).json({ message: 'Collection created successfully', collections: newCollection });
-  } catch (error) {
-    console.error('Error creating collection:', error);
-    res.status(500).json({ message: 'Internal server error', error });
-  }
-};
-
-
-exports.getUserCollections = async (req, res) => {
-  try {
-    // Extract userID from the token payload
-    const userID = req.payload; // Assuming JWT middleware attaches user info to `req.user`
-    const collections = await Collection.find({ userID });
-
-    res.status(200).json(collections);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Failed to fetch collections' });
-  }
-};
-
-exports.deleteCollection = async (req, res) => {
-  const { collectionId } = req.params;
-  const userId = req.payload;
-
-  try {
-    const result = await Collection.findByIdAndDelete(collectionId);
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ message: 'Collection not found or not authorized to delete.' });
-    }
-    res.status(200).json({ message: 'Collection deleted successfully.' });
-  } catch (error) {
-    console.error('Error deleting collection:', error);
-    res.status(500).json({ message: 'Server error, try again later.', error: error.message });
-  }
-  
-};
-
-// Backend: recipeController.js
-const PdfDocument = require('pdfkit');
-
+// ===============================
+// PDF Download
+// ===============================
 exports.generatePdf = async (req, res) => {
-  const { name, ingredients = [], instructions } = req.body; // Default ingredients to an empty array
-  console.log(req.body);
+  const { name, ingredients = [], instructions } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ message: 'Recipe name is required' });
+  }
 
   try {
-    const doc = new PdfDocument();  // Use PdfDocument here instead of PDFDocument
-
+    const doc = new PDFDocument();
     const chunks = [];
 
     doc.on('data', (chunk) => chunks.push(chunk));
@@ -290,15 +110,12 @@ exports.generatePdf = async (req, res) => {
       res.send(pdfBuffer);
     });
 
-    // Write content to PDF
+    // Write PDF content
     doc.fontSize(20).text(`Recipe: ${name}`, { align: 'center' }).moveDown();
     doc.fontSize(16).text('Ingredients:', { underline: true }).moveDown();
-    
-    // Ensure ingredients is an array
+
     if (Array.isArray(ingredients) && ingredients.length > 0) {
-      ingredients.forEach((item) => {
-        doc.fontSize(12).text(`- ${item}`);
-      });
+      ingredients.forEach((item) => doc.fontSize(12).text(`- ${item}`));
     } else {
       doc.fontSize(12).text('No ingredients provided.');
     }
@@ -311,5 +128,127 @@ exports.generatePdf = async (req, res) => {
   } catch (error) {
     console.error('Error generating PDF:', error);
     res.status(500).json({ message: 'Failed to generate PDF.' });
+  }
+};
+
+// ===============================
+// Shareable Link
+// ===============================
+exports.generateShareableLink = async (req, res) => {
+  const { recipeId } = req.body;
+
+  try {
+    const Recipe = await recipes.findById(recipeId);
+    if (!Recipe) {
+      return res.status(404).json({ message: 'Recipe not found' });
+    }
+
+    const shareableLink = `${req.protocol}://${req.get('host')}/recipes/${Recipe._id}`;
+    return res.status(200).json({ link: shareableLink });
+  } catch (error) {
+    console.error('Error generating shareable link:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ===============================
+// Delete Recipe
+// ===============================
+exports.deleteRecipe = async (req, res) => {
+  const { recipeId } = req.params;
+
+  try {
+    const response = await recipes.findByIdAndDelete(recipeId);
+    if (!response) {
+      return res.status(404).json({ message: 'Recipe not found' });
+    }
+    res.status(200).json("Successfully Deleted");
+  } catch (err) {
+    res.status(500).json({ message: "Error deleting recipe", error: err.message });
+  }
+};
+
+// ===============================
+// Update Recipe
+// ===============================
+exports.editRecipe = async (req, res) => {
+  try {
+    const { name, ingredients, instructions } = req.body;
+    const updatedData = { name, ingredients, instructions };
+
+    if (req.file) {
+      updatedData.recipeImg = req.file.filename;
+    }
+
+    const recipe = await recipes.findByIdAndUpdate(req.params.id, updatedData, { new: true });
+
+    if (!recipe) {
+      return res.status(404).json({ message: 'Recipe not found' });
+    }
+
+    res.status(200).json({ message: 'Recipe updated successfully', recipe });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating recipe', error });
+  }
+};
+
+// ===============================
+// Create Collection
+// ===============================
+exports.createCollection = async (req, res) => {
+  const { name, recipes: recipeList } = req.body;
+  const userID = req.payload;
+
+  try {
+    if (!name || !userID || !Array.isArray(recipeList) || recipeList.length === 0) {
+      return res.status(400).json({ message: 'Invalid input data' });
+    }
+
+    const userExists = await users.findById(userID);
+    if (!userExists) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const newCollection = new Collection({ name, userID, recipes: recipeList });
+    await newCollection.save();
+
+    res.status(201).json({ message: 'Collection created successfully', collections: newCollection });
+  } catch (error) {
+    console.error('Error creating collection:', error);
+    res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
+// ===============================
+// Get User Collections
+// ===============================
+exports.getUserCollections = async (req, res) => {
+  try {
+    const userID = req.payload;
+    const collections = await Collection.find({ userID });
+    res.status(200).json(collections);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Failed to fetch collections' });
+  }
+};
+
+// ===============================
+// Delete Collection
+// ===============================
+exports.deleteCollection = async (req, res) => {
+  const { collectionId } = req.params;
+
+  try {
+    const result = await Collection.findByIdAndDelete(collectionId);
+
+    if (!result) {
+      return res.status(404).json({ message: 'Collection not found' });
+    }
+
+    res.status(200).json({ message: 'Collection deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting collection:', error);
+    res.status(500).json({ message: 'Server error, try again later.', error: error.message });
   }
 };
