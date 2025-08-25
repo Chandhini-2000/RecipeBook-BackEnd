@@ -17,6 +17,7 @@ exports.register = async (req, res) => {
         // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Create new user
         const newUser = new users({ username, email, password: hashedPassword });
         await newUser.save();
 
@@ -53,7 +54,7 @@ exports.login = async (req, res) => {
         // Generate JWT Token
         const token = jwt.sign(
             { userID: userData._id },
-            process.env.JWT_SECRET,   // ✅ use clear env var name
+            process.env.JWT_SECRET,   // ✅ must match your .env key
             { expiresIn: "1h" }       // optional expiry
         );
 
