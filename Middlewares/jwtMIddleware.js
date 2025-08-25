@@ -1,26 +1,17 @@
 const jwt = require('jsonwebtoken');
 
 const jwtMiddleware = (req, res, next) => {
-    console.log("Inside jwt");
-    try {
-        const authHeader = req.headers['authorization'];
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.slice(7); // Extract the token after 'Bearer '
-            console.log(token);
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(401).json({ error: 'Access denied. No token provided.' });
 
-            const jwtVerification = jwt.verify(token, process.env.jwtToken);
-            console.log("code:",jwtVerification);
-
-            req.payload = jwtVerification.userID;
-            console.log(req.payload);
-
-            next();
-        } else {
-            res.status(401).json("Please provide the token");
-        }
-    } catch (err) {
-        res.status(404).json("Please login");
-    }
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.payload = decoded; // <-- Use req.payload to match your controllers
+    next();
+  } catch (err) {
+    res.status(400).json({ error: 'Invalid token.' });
+  }
 };
 
 module.exports = jwtMiddleware;

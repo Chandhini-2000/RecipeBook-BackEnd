@@ -1,36 +1,16 @@
-// 1. Load .env file
-require('dotenv').config();
-
-// 2. Import express
 const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-
-// 3. Create an app using express
-const pfServer = express();
-
-// 4. Middleware
-pfServer.use(cors());
-pfServer.use(bodyParser.json()); 
-pfServer.use(bodyParser.urlencoded({ extended: true }));
-pfServer.use(express.json()); // Ensure JSON parsing before routes
-
-// 5. Import database connection
-require('./DB/Connection');
-
-// 6. Import router
+const app = express();
 const router = require('./Router/router');
-pfServer.use(router); // Use router
+const path = require('path');
 
-// 7. Port creation
-const PORT = process.env.PORT || 4001;
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 8. App Listener
-pfServer.listen(PORT, () => {
-  console.log("PF Server listening on port", PORT);
-});
+// Serve uploaded images
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 9. Default Route
-pfServer.get('/', (req, res) => {
-  res.send("Welcome to PF Server");
-});
+// Mount router without /api prefix
+app.use('/api', router);
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
