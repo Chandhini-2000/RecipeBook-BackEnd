@@ -1,100 +1,80 @@
 // 1. Import express
-const express = require('express')
-const { generatePDF } = require('../Controllers/recipeController');
-const { generatePdf } = require('../Controllers/recipeController');
-const { createCollection } = require('../Controllers/recipeController');
-const { deleteCollection } = require('../Controllers/recipeController');
-const commentController = require('../Controllers/commentController');
-// 2. Create router from express
-const router = express.Router()
+const express = require('express');
+const router = express.Router();
 
-// 3. Import controllers and middleware
-const userController = require('../Controllers/userController')
-//const recipeController = require('../Controllers/recipeController')
-//const jwtMiddleware = require('../Middlewares/jwtMiddleware')
-const multerMiddleware = require('../Middlewares/multerMiddleware') // Make sure this is imported correctly
+// 2. Import controllers
+const userController = require('../Controllers/userController');
 const recipeController = require('../Controllers/recipeController');
-const jwtMiddleware = require('../Middlewares/jwtMIddleware');
-const adminController = require("../Controllers/adminController");
-// 4. Create routes for each request
-const users = require('../Models/userSchema'); // Adjust the path if necessary
+const commentController = require('../Controllers/commentController');
+const adminController = require('../Controllers/adminController');
 
+// 3. Import Middlewares
+const jwtMiddleware = require('../Middlewares/jwtMiddleware'); // ⚠️ check spelling & case
+const multerMiddleware = require('../Middlewares/multerMiddleware');
 
-const recipes = require('../Models/recipeSchema'); // Adjust the path if necessary
+// 4. Models (for population if needed)
+const recipes = require('../Models/recipeSchema');
 
-// 4.1 Register request: http://localhost:4000/api/register
-router.post('/api/register', userController.register)
+// ======================= AUTH ROUTES =======================
+router.post('/api/register', userController.register);
+router.post('/api/login', userController.login);
 
-// 4.2 Login request: http://localhost:4000/api/login
-router.post('/api/login', userController.login)
+// ======================= RECIPE ROUTES =======================
 
-// Add a recipe to collection
-// Define the route
+// Add recipe
+router.post(
+  '/api/addRecipe',
+  jwtMiddleware,
+  multerMiddleware.single('recipeImg'),
+  recipeController.addRecipe
+);
 
+// Get all recipes
+router.get('/api/getAllRecipes', jwtMiddleware, recipeController.getAllRecipes);
 
-router.post('/api/addRecipe', jwtMiddleware,  multerMiddleware.single('recipeImg'), recipeController.addRecipe);
-router.get('/api/getAllRecipes', jwtMiddleware,  multerMiddleware.single('recipeImg'), recipeController.getAllRecipes);
+// Edit recipe
+router.put(
+  '/api/editRecipe/:recipeId',
+  jwtMiddleware,
+  multerMiddleware.single('recipeImg'),
+  recipeController.editRecipe
+);
 
-// Get all recipes in the user's collection
-//router.get('/get-collection', protect, recipeController.getCollection);
+// Delete recipe
+router.delete('/api/deleteRecipe/:recipeId', jwtMiddleware, recipeController.deleteRecipe);
 
+// Generate PDFs
+router.post('/api/generate-pdf', recipeController.generatePDF);
+router.post('/api/generate-Cpdf', recipeController.generatePdf);
 
+// Share recipe link
+router.post('/api/share-recipe', jwtMiddleware, recipeController.generateShareableLink);
 
-  
-  //pdf
-  router.post('/api/generate-pdf', generatePDF);
-  router.post('/api/generate-Cpdf', generatePdf);
-
-  //sharelink
-  router.post('/api/share-recipe', jwtMiddleware,recipeController.generateShareableLink);
-
-  router.delete('/api/deleteRecipe/:recipeId',jwtMiddleware, recipeController.deleteRecipe);
-  router.put('/api/editRecipe/:recipeId', multerMiddleware.single('recipeImg'), recipeController.editRecipe);
-
- 
-
-
-// Route for getting all actions (user actions like adding recipes)
-// Endpoint to get recipes with user details
+// Recipes with user details
 router.get('/api/recipes-with-users', async (req, res) => {
   try {
     const Recipes = await recipes.find().populate('userID', 'username email');
     res.status(200).json(Recipes);
   } catch (err) {
-    console.error('Error fetching recipes with users:', {
-      message: err.message,
-      stack: err.stack,
-    });
+    console.error('Error fetching recipes with users:', err);
     res.status(500).json({ error: 'Internal Server Error', details: err.message });
   }
 });
 
+// ======================= COLLECTION ROUTES =======================
+router.post('/api/collections', jwtMiddleware, recipeController.createCollection);
+router.get('/api/get-collections', jwtMiddleware, recipeController.getUserCollections);
+router.delete('/api/collections/:collectionId', jwtMiddleware, recipeController.deleteCollection);
 
+// ======================= COMMENT ROUTES =======================
+router.post('/api/addComment', jwtMiddleware, commentController.addComment);
+router.get('/api/comments/:recipeId', commentController.getCommentsByRecipe);
+router.delete('/api/comments/:commentId', jwtMiddleware, commentController.deleteComment);
+
+// ======================= ADMIN ROUTES =======================
 router.post('/api/admin/login', adminController.adminLogin);
-
-// Route for getting all users (Admin only)
 router.get('/api/recipe-with-users', adminController.getUsers);
-
 router.delete('/api/deleteUser/:userID', jwtMiddleware, adminController.deleteUser);
 
-router.post('/api/collections',jwtMiddleware,recipeController.createCollection);
-
-
-// Route to fetch collections (userID is derived from token)
-router.get('/api/get-collections', jwtMiddleware, recipeController.getUserCollections);
-
-// Delete collection route
-router.delete('/api/collections/:collectionId',jwtMiddleware, recipeController.deleteCollection);
-
-// Route to add a comment
-router.post('/api/addComment',jwtMiddleware,commentController.addComment);
-
-// Route to get all comments for a specific recipe
-router.get('/:recipeId', commentController.getCommentsByRecipe);
-
-// Route to delete a comment
-router.delete('/:commentId', commentController.deleteComment);
-
-
-// Export the router
-module.exports = router
+// ======================= EXPORT =======================
+module.exports = router;
