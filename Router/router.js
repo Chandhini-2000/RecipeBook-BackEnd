@@ -12,6 +12,9 @@ const adminController = require('../Controllers/adminController');
 const jwtMiddleware = require('../Middlewares/jwtMiddleware');
 const multerMiddleware = require('../Middlewares/multerMiddleware');
 
+// Models (if needed in routes, e.g., optional route)
+const Recipe = require('../Models/recipeSchema');
+
 // =======================
 // AUTH ROUTES
 // =======================
@@ -51,7 +54,7 @@ router.put(
 router.delete('/api/recipes/:id', jwtMiddleware, recipeController.deleteRecipe);
 
 // Generate PDF for a recipe
-router.post('/api/recipes/:id/generatePdf', recipeController.generatePDF);
+router.post('/api/recipes/:id/generatePdf', jwtMiddleware, recipeController.generatePDF);
 
 // Share a recipe link
 router.post('/api/recipes/:id/share', jwtMiddleware, recipeController.generateShareableLink);
@@ -72,7 +75,7 @@ router.get('/api/recipes-with-users', jwtMiddleware, async (req, res) => {
 // Create a collection
 router.post('/api/collections', jwtMiddleware, recipeController.createCollection);
 
-// Get all collections for user
+// Get all collections for authenticated user
 router.get('/api/collections', jwtMiddleware, recipeController.getUserCollections);
 
 // Delete a collection by ID
@@ -81,13 +84,13 @@ router.delete('/api/collections/:id', jwtMiddleware, recipeController.deleteColl
 // =======================
 // COMMENT ROUTES
 // =======================
-// Add a comment
+// Add a comment to a recipe
 router.post('/api/comments', jwtMiddleware, commentController.addComment);
 
 // Get comments for a recipe
 router.get('/api/comments/:recipeId', commentController.getCommentsByRecipe);
 
-// Delete a comment
+// Delete a comment by ID
 router.delete('/api/comments/:commentId', jwtMiddleware, commentController.deleteComment);
 
 module.exports = router;
