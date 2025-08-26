@@ -1,3 +1,4 @@
+// src/Routes/router.js
 const express = require('express');
 const router = express.Router();
 
@@ -11,9 +12,6 @@ const adminController = require('../Controllers/adminController');
 const jwtMiddleware = require('../Middlewares/jwtMiddleware');
 const multerMiddleware = require('../Middlewares/multerMiddleware');
 
-// Models
-const Recipe = require('../Models/recipeSchema');
-
 // =======================
 // AUTH ROUTES
 // =======================
@@ -21,29 +19,42 @@ router.post('/api/register', userController.register);
 router.post('/api/login', userController.login);
 
 // =======================
+// ADMIN ROUTES
+// =======================
+router.post('/api/admin/login', adminController.adminLogin);
+router.get('/api/admin/users', jwtMiddleware, adminController.getUsers);
+router.delete('/api/admin/users/:userID', jwtMiddleware, adminController.deleteUser);
+
+// =======================
 // RECIPE ROUTES
 // =======================
+// Create a new recipe
 router.post(
-  '/api/addRecipe',
+  '/api/recipes',
   jwtMiddleware,
   multerMiddleware.single('recipeImg'),
   recipeController.addRecipe
 );
 
-router.get('/api/getAllRecipes', jwtMiddleware, recipeController.getAllRecipes);
+// Get all recipes
+router.get('/api/recipes', jwtMiddleware, recipeController.getAllRecipes);
 
+// Edit a recipe by ID
 router.put(
-  '/api/editRecipe/:id',
+  '/api/recipes/:id',
   jwtMiddleware,
   multerMiddleware.single('recipeImg'),
   recipeController.editRecipe
 );
 
-router.delete('/api/deleteRecipe/:recipeId', jwtMiddleware, recipeController.deleteRecipe);
+// Delete a recipe by ID
+router.delete('/api/recipes/:id', jwtMiddleware, recipeController.deleteRecipe);
 
-router.post('/api/generate-pdf', recipeController.generatePDF);
+// Generate PDF for a recipe
+router.post('/api/recipes/:id/generatePdf', recipeController.generatePDF);
 
-router.post('/api/share-recipe', jwtMiddleware, recipeController.generateShareableLink);
+// Share a recipe link
+router.post('/api/recipes/:id/share', jwtMiddleware, recipeController.generateShareableLink);
 
 // Optional: get recipes with user info (authenticated)
 router.get('/api/recipes-with-users', jwtMiddleware, async (req, res) => {
@@ -58,22 +69,25 @@ router.get('/api/recipes-with-users', jwtMiddleware, async (req, res) => {
 // =======================
 // COLLECTION ROUTES
 // =======================
+// Create a collection
 router.post('/api/collections', jwtMiddleware, recipeController.createCollection);
-router.get('/api/get-collections', jwtMiddleware, recipeController.getUserCollections);
+
+// Get all collections for user
+router.get('/api/collections', jwtMiddleware, recipeController.getUserCollections);
+
+// Delete a collection by ID
 router.delete('/api/collections/:id', jwtMiddleware, recipeController.deleteCollection);
 
 // =======================
 // COMMENT ROUTES
 // =======================
-router.post('/api/addComment', jwtMiddleware, commentController.addComment);
-router.get('/api/comments/:recipeId', commentController.getCommentsByRecipe);
-router.delete('/api/comments/:commentId', jwtMiddleware, commentController.deleteComment);
+// Add a comment
+router.post('/api/comments', jwtMiddleware, commentController.addComment);
 
-// =======================
-// ADMIN ROUTES
-// =======================
-router.post('/api/admin/login', adminController.adminLogin);
-router.get('/api/recipe-with-users', adminController.getUsers);
-router.delete('/api/deleteUser/:userID', jwtMiddleware, adminController.deleteUser);
+// Get comments for a recipe
+router.get('/api/comments/:recipeId', commentController.getCommentsByRecipe);
+
+// Delete a comment
+router.delete('/api/comments/:commentId', jwtMiddleware, commentController.deleteComment);
 
 module.exports = router;
